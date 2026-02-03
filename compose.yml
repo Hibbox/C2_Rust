@@ -1,0 +1,27 @@
+services:
+  app:
+    container_name: app_c2
+    build: .
+    
+  db:
+    image: postgres:15
+    container_name: db
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+  
+    environment:
+      POSTGRES_USER: hibooxx
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+      POSTGRES_DB: c2
+
+    secrets:
+      - db_password
+
+volumes:
+  pg_data:
+
+secrets:
+  db_password:
+    file: db_secret.txt
