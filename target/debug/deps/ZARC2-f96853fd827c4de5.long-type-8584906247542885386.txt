@@ -1,2 +1,0 @@
-fn(axum::extract::State<Pool<Postgres>>, axum::Json<Vec<{type error}, {type error}>>) -> impl std::future::Future<Output = Result<impl Into<(StatusCode, std::string::String)>, StatusCode>> {resource::post_task}
-fn(axum::extract::State<Pool<Postgres>>, axum::Json<Vec<{type error}, {type error}>>) -> impl std::future::Future<Output = Result<impl Into<(StatusCode, std::string::String)>, StatusCode>> {resource::post_task}: Handler<_, Pool<Postgres>>
