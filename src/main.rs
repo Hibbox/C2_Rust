@@ -18,6 +18,7 @@ async fn main() {
 
     let app = Router::new()
         .route("/task", get(get_task).post(add_task))
+        .route("/results", get(get_result).post(add_result))
         .route("/users", post(create_user).get(list_users))
         .route("/user/:id", get(get_users_id).put(update_user).delete(delete_user))
         .with_state(pool);
