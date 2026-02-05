@@ -20,9 +20,10 @@ pub struct Task{
 //Structure pour les result (Post /result)
 #[derive(Deserialize, Debug)]
 pub struct ResultPayload{
-    pub task_id: i32,
+    pub task_id: Uuid,
     pub status: String,
-    pub output: serde_json::Value, 
+    pub output: serde_json::Value,
+    pub execution: Option<i32>,
 }
 // Structure pour request entrant ( Post /Task)
 #[derive(Deserialize, Debug)]
@@ -101,9 +102,42 @@ pub async fn add_task(State(pool): State<PgPool>, Json(payloads): Json<Vec<TaskP
 
 
 
-pub async fn add_result(State(pool): State<PgPool>, Json(tasks): Json<Vec<serde_json::Value>>
+pub async fn add_result(State(pool): State<PgPool>, Json(results): Json<Vec<ResultPayload>>
 ) -> Result<Json<Vec<Task>>, StatusCode>{
-    //implement logique
+
+    //recuperer les taches en attentes dans un premier temp avant d'executer les taches
+    if results.is_empty(){
+        //on doit recuperer les taches en attentes
+        let pending_tasks = sqlx::query_as::<_,Task>("SELECT * FROM task ORDER BY task_id ASC LIMIT 10")
+        .fetch_all(&pool)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        return Ok(Json(pending_tasks));
+    }
+    // pour chaque traitement nous devons y attribuer un uuid et y inserer le resultat dans la table task
+        for result_payload in results{
+            let result_uuid = Uuid::new_v4();
+            let _result = sqlx::query("INSERT INTO task_result (result_id, task_id, status, output, execution) VALUES ($1, $2, $3, $4, $5)")
+            .bind(result_uuid)
+            .bind(result_payload.task_id)
+            .bind(&result_payload.status)
+            .bind(&result_payload.output)
+            .bind(result_payload.execution)
+            .execute(&pool).await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+            //supprimer la tache de la table active
+            sqlx::query("DELETE FROM task WHERE task_id = $1")
+            .bind(result_payload.task_id)
+            .execute(&pool).await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        }
+    
+        let waiting_tasks = sqlx::query_as::<_,Task>("SELECT * FROM task ORDER BY task_id ASC LIMIT 10")
+            .fetch_all(&pool)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        Ok(Json(waiting_tasks))
     }
 
 pub async fn get_result(State(pool): State<PgPool>,) -> Result<Json<Vec<Task>>, StatusCode>{
