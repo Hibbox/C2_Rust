@@ -1,27 +1,27 @@
 services:
-  app:
-    container_name: app_c2
-    build: .
-    
   db:
     image: postgres:15
     container_name: db
     volumes:
       - pg_data:/var/lib/postgresql/data
     ports:
-      - "5433:5432"
+      - "5435:5432"
   
     environment:
       POSTGRES_USER: hibooxx
-      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: c2
-
-    secrets:
-      - db_password
+  
+  app:
+    container_name: app_c2
+    build:
+      dockerfile: DockerFile
+    environment:
+      DATABASE_URL: postgres://hibooxx:${DB_PASSWORD}@db:5432/c2
+    depends_on:
+      - db
+    ports:
+      - "8009:8009"
 
 volumes:
   pg_data:
-
-secrets:
-  db_password:
-    file: db_secret.txt

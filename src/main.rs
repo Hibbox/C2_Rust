@@ -1,4 +1,4 @@
-use axum::{ Router, routing::{get, post, put, delete} };
+use axum::{ Router, routing::{get, post} };
 use sqlx::{ postgres::PgPoolOptions };
 use tokio;
 use std::env;
@@ -17,16 +17,20 @@ async fn main() {
     sqlx::migrate!().run(&pool).await.expect("tables doesn't create");
 
     let app = Router::new()
+        .route("/", get(root))
         .route("/task", get(get_task).post(add_task))
         .route("/results", get(get_result).post(add_result))
         .route("/users", post(create_user).get(list_users))
-        .route("/user/:id", get(get_users_id).put(update_user).delete(delete_user))
+        .route("/user/{id}", get(get_users_id).put(update_user).delete(delete_user))
         .with_state(pool);
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:8000").await.unwrap();
-    println!("Server en ecoute :)...");
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:8009").await.unwrap();
+    println!("Server en ecoute ...");
     axum::serve(listener,app).await.unwrap();
 
+    async fn root() -> &'static str {
+        "Welcome to the user management"
+    }
 
 
 }

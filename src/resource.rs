@@ -1,13 +1,12 @@
 
 use axum::{
-    Json, body, extract::{Path, State}, http::StatusCode
+    Json, extract::{Path, State}, http::StatusCode
 };
 
 use serde::{ Deserialize, Serialize };
 use sqlx::{ FromRow, PgPool };
-use sqlx::types::Uuid;
-use chrono;
-use uuid;
+use sqlx::types::{Uuid, chrono::NaiveDateTime};
+
 
 
 // Structure pour la base de donner
@@ -18,12 +17,14 @@ pub struct Task{
       pub task_options: serde_json::Value
 }
 //Structure pour les result (Post /result)
-#[derive(Deserialize, Debug)]
-pub struct ResultPayload{
+#[derive(Debug,Serialize,Deserialize, FromRow)]
+pub struct ResultTask{
+    pub result_id: Uuid,
     pub task_id: Uuid,
-    pub status: String,
+    pub sucess: bool,
     pub output: serde_json::Value,
-    pub execution: Option<i32>,
+    pub completed_at: NaiveDateTime,
+    pub execution: Option<i32>
 }
 // Structure pour request entrant ( Post /Task)
 #[derive(Deserialize, Debug)]
@@ -36,8 +37,8 @@ pub struct TaskHistory {
     pub task_id: Uuid,
     pub task_type: String,
     pub task_options: serde_json::Value,
-    pub created_at: chrono::DateTime<chrono::Utc>,
-    pub status: String,
+    pub created_at: NaiveDateTime,
+    pub sucess: bool,
 }
 
 #[derive(Deserialize)] //servira pour creer utilisateur
@@ -70,7 +71,8 @@ pub async fn add_task(State(pool): State<PgPool>, Json(payloads): Json<Vec<TaskP
         return Err(StatusCode::BAD_REQUEST);
     }
     let mut added_tasks = Vec::new();
-
+            // Si pas d'options, mettre un objet JSON vide
+    
     for p in payloads {
         let task_uuid = Uuid::new_v4();
         
@@ -100,10 +102,19 @@ pub async fn add_task(State(pool): State<PgPool>, Json(payloads): Json<Vec<TaskP
 }
 
 
+pub async fn get_result(State(pool): State<PgPool>) -> Result<Json<Vec<ResultTask>>, StatusCode>{
+    let results2 = sqlx::query_as::<_,ResultTask>("SELECT result_id, task_id, sucess, output, completed_at, execution FROM task_result ORDER BY completed_at DESC LIMIT 10")
+    .fetch_all(&pool).await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    
+    Ok(Json(results2))
+
+}
 
 
-pub async fn add_result(State(pool): State<PgPool>, Json(results): Json<Vec<ResultPayload>>
-) -> Result<Json<Vec<Task>>, StatusCode>{
+pub async fn add_result(State(pool): State<PgPool>, Json(results): Json<Vec<ResultTask>>
+) -> Result<Json<Vec<Task>>, StatusCode>
+{
 
     //recuperer les taches en attentes dans un premier temp avant d'executer les taches
     if results.is_empty(){
@@ -117,10 +128,10 @@ pub async fn add_result(State(pool): State<PgPool>, Json(results): Json<Vec<Resu
     // pour chaque traitement nous devons y attribuer un uuid et y inserer le resultat dans la table task
         for result_payload in results{
             let result_uuid = Uuid::new_v4();
-            let _result = sqlx::query("INSERT INTO task_result (result_id, task_id, status, output, execution) VALUES ($1, $2, $3, $4, $5)")
+            let _result = sqlx::query("INSERT INTO task_result (result_id, task_id, sucess, output, execution) VALUES ($1, $2, $3, $4, $5)")
             .bind(result_uuid)
             .bind(result_payload.task_id)
-            .bind(&result_payload.status)
+            .bind(&result_payload.sucess)
             .bind(&result_payload.output)
             .bind(result_payload.execution)
             .execute(&pool).await
@@ -138,12 +149,7 @@ pub async fn add_result(State(pool): State<PgPool>, Json(results): Json<Vec<Resu
             .await
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
         Ok(Json(waiting_tasks))
-    }
-
-pub async fn get_result(State(pool): State<PgPool>,) -> Result<Json<Vec<Task>>, StatusCode>{
-        //implement logique
 }
-
 
 pub async fn list_users(State(pool): State<PgPool>) -> Result<Json<Vec<User>>, StatusCode> {
         sqlx::query_as::<_, User>(

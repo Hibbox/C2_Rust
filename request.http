@@ -1,0 +1,38 @@
+### Get all tasks
+GET http://localhost:8009/task
+
+### Add tasks
+POST http://localhost:8009/task
+Content-Type: application/json
+
+[
+	{
+		"task_type":"ping",
+        "task_options": []
+	}
+
+]
+
+### Add result
+POST http://localhost:8009/results
+Content-Type: application/json
+
+[
+{
+    "c839c32a-9338-491b-9d57-30a4bfc4a2e8":{
+        "task_options": "PONG!",
+        "success": "true"
+    }
+    
+}   
+
+]
+
+### Get results
+GET http://localhost:8009/results
+
+### Get users
+GET http://localhost:8009/users
+
+### Get user by id
+GET http://localhost:8009/user/1
