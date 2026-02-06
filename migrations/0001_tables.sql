@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS task_result (
     sucess BOOL NOT NULL,
     output JSONB NOT NULL,
     completed_at TIMESTAMP DEFAULT NOW(),
-    execution INTEGER,
+    execution_time_ms INTEGER,
     FOREIGN KEY (task_id) REFERENCES task(task_id) ON DELETE CASCADE
 );
 

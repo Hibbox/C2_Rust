@@ -16,15 +16,23 @@ pub struct Task{
       pub task_type: String,
       pub task_options: serde_json::Value
 }
-//Structure pour les result (Post /result)
+//Structure pour les result stocker en bdd 
 #[derive(Debug,Serialize,Deserialize, FromRow)]
 pub struct ResultTask{
     pub result_id: Uuid,
     pub task_id: Uuid,
-    pub sucess: bool,
+    pub success: bool,
     pub output: serde_json::Value,
     pub completed_at: NaiveDateTime,
-    pub execution: Option<i32>
+    pub execution_time_ms: Option<i32>
+}
+
+#[derive(Deserialize, Debug)]  // ✅ SEULEMENT Deserialize (JSON → Rust)
+pub struct ResultPayload {
+    pub task_id: Uuid,
+    pub success: bool,
+    pub output: serde_json::Value, 
+    pub execution_time_ms: Option<i32>
 }
 // Structure pour request entrant ( Post /Task)
 #[derive(Deserialize, Debug)]
@@ -38,7 +46,7 @@ pub struct TaskHistory {
     pub task_type: String,
     pub task_options: serde_json::Value,
     pub created_at: NaiveDateTime,
-    pub sucess: bool,
+    pub success: bool,
 }
 
 #[derive(Deserialize)] //servira pour creer utilisateur
@@ -57,7 +65,7 @@ pub struct User{
 
 
 pub async fn get_task(State(pool): State<PgPool>,) -> Result<Json<Vec<Task>>, StatusCode> {
-    let tasks = sqlx::query_as::<_, Task>("SELECT * FROM task ORDER BY task_id DESC LIMIT $1")
+    let tasks = sqlx::query_as::<_, Task>("SELECT task_id, task_type, task_options FROM task ORDER BY task_id DESC LIMIT 10")
     .fetch_all(&pool)
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -71,10 +79,15 @@ pub async fn add_task(State(pool): State<PgPool>, Json(payloads): Json<Vec<TaskP
         return Err(StatusCode::BAD_REQUEST);
     }
     let mut added_tasks = Vec::new();
-            // Si pas d'options, mettre un objet JSON vide
+           
     
     for p in payloads {
         let task_uuid = Uuid::new_v4();
+        let task_options = if p.task_options.is_null() || p.task_options.is_array() {
+            serde_json::json!({})  // ✅ Objet vide au lieu d'array
+        } else {
+            p.task_options.clone()
+        };
         
         // Insérer dans la BD
         let result = sqlx::query(
@@ -82,7 +95,7 @@ pub async fn add_task(State(pool): State<PgPool>, Json(payloads): Json<Vec<TaskP
         )
         .bind(task_uuid)
         .bind(&p.task_type)
-        .bind(&p.task_options)
+        .bind(&task_options)
         .execute(&pool)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -92,7 +105,7 @@ pub async fn add_task(State(pool): State<PgPool>, Json(payloads): Json<Vec<TaskP
             added_tasks.push(Task {
                 task_id: task_uuid,
                 task_type: p.task_type.clone(),
-                task_options: p.task_options.clone(),
+                task_options
             });
         }
     }
@@ -112,7 +125,7 @@ pub async fn get_result(State(pool): State<PgPool>) -> Result<Json<Vec<ResultTas
 }
 
 
-pub async fn add_result(State(pool): State<PgPool>, Json(results): Json<Vec<ResultTask>>
+pub async fn add_result(State(pool): State<PgPool>, Json(results): Json<Vec<ResultPayload>>
 ) -> Result<Json<Vec<Task>>, StatusCode>
 {
 
@@ -128,12 +141,12 @@ pub async fn add_result(State(pool): State<PgPool>, Json(results): Json<Vec<Resu
     // pour chaque traitement nous devons y attribuer un uuid et y inserer le resultat dans la table task
         for result_payload in results{
             let result_uuid = Uuid::new_v4();
-            let _result = sqlx::query("INSERT INTO task_result (result_id, task_id, sucess, output, execution) VALUES ($1, $2, $3, $4, $5)")
+            let _result = sqlx::query("INSERT INTO task_result (result_id, task_id, sucess, output, execution_time_ms) VALUES ($1, $2, $3, $4, $5)")
             .bind(result_uuid)
             .bind(result_payload.task_id)
-            .bind(&result_payload.sucess)
+            .bind(result_payload.success)
             .bind(&result_payload.output)
-            .bind(result_payload.execution)
+            .bind(result_payload.execution_time_ms)
             .execute(&pool).await
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 

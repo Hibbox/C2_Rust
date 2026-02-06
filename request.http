@@ -8,7 +8,7 @@ Content-Type: application/json
 [
 	{
 		"task_type":"ping",
-        "task_options": []
+        "task_options": {}
 	}
 
 ]
@@ -19,12 +19,11 @@ Content-Type: application/json
 
 [
 {
-    "c839c32a-9338-491b-9d57-30a4bfc4a2e8":{
-        "task_options": "PONG!",
-        "success": "true"
-    }
-    
-}   
+    "task_id": "70127c72-008c-430f-9a3b-fb59f66be828",
+    "success": true,
+    "output": "PONG!",
+    "execution_time_ms": 50
+}  
 
 ]
 
